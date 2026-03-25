@@ -4,14 +4,15 @@ from pathlib import Path
 import threading
 import queue
 import yt_dlp
-import os  # Necessário para abrir a pasta
+import os
+import shutil  # Necessário para verificar o FFmpeg
 
 # -----------------------------
 # Download worker (thread)
 # -----------------------------
 def baixar_recurso(url, qualidade, pasta_destino: Path, status_queue: queue.Queue, idx: int, modo: str):
     """
-    modo: "Tudo (Vídeo + Áudio)", "Só Áudio (MP3)", "Vídeo sem Áudio"
+    Realiza o download com base no modo selecionado usando yt-dlp.
     """
     try:
         status_queue.put(("status", idx, "andamento", f"Baixando ({modo}): {url}"))
@@ -33,20 +34,48 @@ def baixar_recurso(url, qualidade, pasta_destino: Path, status_queue: queue.Queu
                     "preferredquality": str(qualidade),
                 }],
             })
-        
+            
+        elif modo == "Só Áudio (WAV)":
+            ydl_opts.update({
+                "format": "bestaudio/best",
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "wav",
+                }],
+            })
+            
+        elif modo == "Só Áudio (FLAC)":
+            ydl_opts.update({
+                "format": "bestaudio/best",
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "flac",
+                }],
+            })
+
         elif modo == "Vídeo sem Áudio":
             # Baixa apenas o melhor vídeo disponível (sem áudio) e força MP4
             ydl_opts.update({
                 "format": "bestvideo[ext=mp4]/bestvideo",
-                # Se não baixar mp4 nativo, converte
                 "postprocessors": [{
                     "key": "FFmpegVideoConvertor",
                     "preferedformat": "mp4",
                 }],
             })
             
-        else:  # "Tudo (Vídeo + Áudio)"
-            # AQUI ESTA A CORREÇÃO PARA FORMATO RECONHECIDO
+        elif modo == "Vídeo (WebM - Alta Qualidade)":
+            ydl_opts.update({
+                "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]",
+                "merge_output_format": "webm",
+            })
+            
+        elif modo == "Vídeo (MKV)":
+            ydl_opts.update({
+                "format": "bestvideo+bestaudio/best",
+                "merge_output_format": "mkv",
+            })
+
+        else:  # Padrão: "Tudo (Vídeo + Áudio MP4)"
             ydl_opts.update({
                 # Tenta baixar mp4 nativo, senão baixa o melhor e converte
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
@@ -89,12 +118,23 @@ class BaixadorApp:
             print(f"Erro ao criar pasta: {e}")
 
         self.qualidade_var = tk.StringVar(value="192")
-        self.modo_var = tk.StringVar(value="Tudo (Vídeo + Áudio)")
+        self.modo_var = tk.StringVar(value="Tudo (Vídeo + Áudio MP4)")
         self.pasta_var = tk.StringVar(value=str(self.pasta_destino))
 
         self._configurar_estilo()
         self._montar_ui()
         self._verificar_fila()
+        self._verificar_ffmpeg()
+
+    def _verificar_ffmpeg(self):
+        """Verifica de forma multiplataforma se o FFmpeg está instalado e no PATH."""
+        if not shutil.which("ffmpeg"):
+            messagebox.showwarning(
+                "FFmpeg não encontrado",
+                "O FFmpeg não foi detectado no sistema.\n\n"
+                "Sem ele, as conversões para WAV, FLAC, MP3 ou a mesclagem de áudio e vídeo em alta qualidade poderão falhar.\n\n"
+                "Certifique-se de instalá-lo e adicioná-lo às variáveis de ambiente (PATH)."
+            )
 
     def _configurar_estilo(self):
         self.COL_BG = "#0b1220"
@@ -131,7 +171,7 @@ class BaixadorApp:
         header.pack(fill="x", padx=16, pady=(16, 10))
 
         ttk.Label(header, text="Baixador de Recursos", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(header, text="Selecione o modo desejado: Áudio MP3, Vídeo MP4 ou Ambos.", style="Subtitle.TLabel").pack(anchor="w", pady=(6, 0))
+        ttk.Label(header, text="Selecione o formato desejado e adicione os links abaixo.", style="Subtitle.TLabel").pack(anchor="w", pady=(6, 0))
 
         body = ttk.Frame(self.root, padding=0)
         body.pack(fill="both", expand=True, padx=16, pady=(0, 16))
@@ -162,11 +202,20 @@ class BaixadorApp:
         # MODO DE DOWNLOAD
         modo_box = ttk.Frame(right, style="Card.TFrame", padding=12); modo_box.pack(fill="x", pady=(10, 5))
         ttk.Label(modo_box, text="O que baixar?", style="P.TLabel").pack(anchor="w")
-        self.modo_combo = ttk.Combobox(modo_box, textvariable=self.modo_var, state="readonly", 
-                                     values=["Tudo (Vídeo + Áudio)", "Só Áudio (MP3)", "Vídeo sem Áudio"])
+        
+        opcoes_modo = [
+            "Tudo (Vídeo + Áudio MP4)", 
+            "Vídeo (WebM - Alta Qualidade)",
+            "Vídeo (MKV)",
+            "Só Áudio (MP3)", 
+            "Só Áudio (WAV)",
+            "Só Áudio (FLAC)",
+            "Vídeo sem Áudio"
+        ]
+        self.modo_combo = ttk.Combobox(modo_box, textvariable=self.modo_var, state="readonly", values=opcoes_modo)
         self.modo_combo.pack(fill="x", pady=(6, 0))
 
-        # PASTA - Alterado para incluir botão de abrir
+        # PASTA
         pasta_box = ttk.Frame(right, style="Card.TFrame", padding=12); pasta_box.pack(fill="x", pady=5)
         ttk.Label(pasta_box, text="Pasta de destino", style="P.TLabel").pack(anchor="w")
         pasta_row = ttk.Frame(pasta_box, style="Card.TFrame", padding=0); pasta_row.pack(fill="x", pady=(6, 0))
@@ -175,11 +224,8 @@ class BaixadorApp:
                                    insertbackground=self.COL_TEXT, relief="flat", highlightthickness=1, highlightbackground=self.COL_BORDER)
         self.pasta_entry.pack(side="left", fill="x", expand=True, padx=(0, 8), ipady=4)
         
-        # Botão para Selecionar (Mantido caso queira mudar um dia)
         ttk.Button(pasta_row, text="...", width=3, style="Ghost.TButton", command=self.selecionar_pasta).pack(side="right")
         
-        # --- NOVO BOTÃO: ABRIR PASTA ---
-        # Botão específico para abrir a pasta no Windows Explorer
         btn_abrir = ttk.Button(pasta_box, text="📂 Abrir Pasta", style="Ghost.TButton", command=self.abrir_pasta_local)
         btn_abrir.pack(fill="x", pady=(8, 0))
 
@@ -220,7 +266,12 @@ class BaixadorApp:
         """Abre a pasta de destino no Explorador de Arquivos"""
         path = self.pasta_var.get()
         if os.path.isdir(path):
-            os.startfile(path)
+            # Tenta usar os.startfile (Windows), se falhar (Linux/WSL), tenta usar xdg-open
+            try:
+                os.startfile(path)
+            except AttributeError:
+                import subprocess
+                subprocess.call(['xdg-open', path])
         else:
             messagebox.showwarning("Aviso", "A pasta especificada não existe.")
 
@@ -235,7 +286,6 @@ class BaixadorApp:
         self.btn_baixar.configure(state="disabled")
         self.total = len(urls); self.concluidos = 0
         
-        # Garante que usamos o caminho do Entry, caso tenha sido mudado manualmente
         threading.Thread(target=self._thread_downloads, 
                          args=(urls, self.qualidade_var.get(), Path(self.pasta_var.get()), self.modo_var.get()), 
                          daemon=True).start()
