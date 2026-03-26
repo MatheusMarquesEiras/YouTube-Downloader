@@ -8,15 +8,29 @@ import os
 import shutil
 import sys
 import ctypes
+import json
 
 def get_resource_path(relative_path: str) -> Path:
     """ Retorna o caminho absoluto do recurso, lidando com PyInstaller """
     try:
-        # PyInstaller cria uma pasta temporária e armazena o caminho em _MEIPASS
         base_path = Path(sys._MEIPASS)
     except Exception:
         base_path = Path(__file__).parent
     return base_path / relative_path
+
+def get_config_path() -> Path:
+    """ Retorna o caminho do arquivo de configuração em uma pasta oculta do usuário """
+    # Cria uma pasta oculta no diretório do usuário (ex: C:\Users\Nome\.youtube_downloader)
+    config_dir = Path.home() / ".youtube_downloader"
+    try:
+        config_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        # Fallback para o diretório temporário do sistema se falhar
+        import tempfile
+        config_dir = Path(tempfile.gettempdir()) / "youtube_downloader"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        
+    return config_dir / "settings.json"
 
 # -----------------------------
 # Download worker (thread)
@@ -130,22 +144,52 @@ class BaixadorApp:
         self.total = 0
         self.concluidos = 0
 
-        # Seu caminho fixo
-        self.pasta_destino = Path(r"C:\Users\mathe\OneDrive\Desktop\git\audios")
-        # Garante que a pasta existe, senão cria
-        try:
-            self.pasta_destino.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print(f"Erro ao criar pasta: {e}")
-
+        # Variáveis controladas pela interface
         self.qualidade_var = tk.StringVar(value="192")
         self.modo_var = tk.StringVar(value="Tudo (Vídeo + Áudio MP4)")
-        self.pasta_var = tk.StringVar(value=str(self.pasta_destino))
+        self.pasta_var = tk.StringVar(value="")
+
+        # Carrega configurações salvas
+        self.config_path = get_config_path()
+        self._carregar_config()
+
+        # Protocolo para salvar ao fechar
+        self.root.protocol("WM_DELETE_WINDOW", self._ao_fechar)
 
         self._configurar_estilo()
         self._montar_ui()
         self._verificar_fila()
         self._verificar_ffmpeg()
+
+    def _carregar_config(self):
+        """Carrega as configurações do arquivo JSON se ele existir"""
+        if self.config_path.exists():
+            try:
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    self.pasta_var.set(config.get("pasta", ""))
+                    self.qualidade_var.set(config.get("qualidade", "192"))
+                    self.modo_var.set(config.get("modo", "Tudo (Vídeo + Áudio MP4)"))
+            except Exception as e:
+                print(f"Erro ao carregar configurações: {e}")
+
+    def _salvar_config(self):
+        """Salva as configurações atuais em um arquivo JSON"""
+        config = {
+            "pasta": self.pasta_var.get(),
+            "qualidade": self.qualidade_var.get(),
+            "modo": self.modo_var.get()
+        }
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"Erro ao salvar configurações: {e}")
+
+    def _ao_fechar(self):
+        """Chamado quando a janela é fechada"""
+        self._salvar_config()
+        self.root.destroy()
 
     def _verificar_ffmpeg(self):
         """Verifica de forma multiplataforma se o FFmpeg está instalado e no PATH."""
@@ -186,6 +230,27 @@ class BaixadorApp:
         style.map("Accent.TButton", background=[("active", "#93c5fd"), ("disabled", "#334155")])
         style.configure("Ghost.TButton", font=("Segoe UI", 10), padding=(12, 9), background=self.COL_SURFACE_2, foreground=self.COL_TEXT)
         style.configure("TProgressbar", thickness=18, background=self.COL_ACCENT)
+
+        # Melhora visual das Comboboxes para garantir visibilidade do texto
+        style.configure("TCombobox", 
+                        fieldbackground=self.COL_SURFACE_2, 
+                        background=self.COL_BORDER, 
+                        foreground=self.COL_TEXT,
+                        padding=5,
+                        arrowcolor=self.COL_TEXT,
+                        font=("Segoe UI", 10))
+        
+        style.map("TCombobox", 
+                  fieldbackground=[("readonly", self.COL_SURFACE_2)],
+                  foreground=[("readonly", self.COL_TEXT)],
+                  bordercolor=[("focus", self.COL_ACCENT)])
+
+        # Aplica estilo ao dropdown (lista) da combobox
+        self.root.option_add("*TCombobox*Listbox.background", self.COL_SURFACE_2)
+        self.root.option_add("*TCombobox*Listbox.foreground", self.COL_TEXT)
+        self.root.option_add("*TCombobox*Listbox.selectBackground", self.COL_ACCENT)
+        self.root.option_add("*TCombobox*Listbox.selectForeground", self.COL_BG)
+        self.root.option_add("*TCombobox*Listbox.font", ("Segoe UI", 10))
 
     def _montar_ui(self):
         header = ttk.Frame(self.root, style="Card.TFrame", padding=16)
@@ -298,6 +363,12 @@ class BaixadorApp:
 
     def iniciar_downloads(self):
         if self.processando: return
+        
+        pasta = self.pasta_var.get().strip()
+        if not pasta:
+            messagebox.showerror("Erro", "Por favor, selecione uma pasta de destino.")
+            return
+            
         urls = [u for u in self.urls_text.get("1.0", "end").splitlines() if u.strip().startswith("http")]
         if not urls:
             messagebox.showerror("Erro", "Insira URLs válidas.")
@@ -307,8 +378,17 @@ class BaixadorApp:
         self.btn_baixar.configure(state="disabled")
         self.total = len(urls); self.concluidos = 0
         
+        # Garante que a pasta existe antes de começar
+        try:
+            Path(pasta).mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível criar/acessar a pasta:\n{e}")
+            self.processando = False
+            self.btn_baixar.configure(state="normal")
+            return
+        
         threading.Thread(target=self._thread_downloads, 
-                         args=(urls, self.qualidade_var.get(), Path(self.pasta_var.get()), self.modo_var.get()), 
+                         args=(urls, self.qualidade_var.get(), Path(pasta), self.modo_var.get()), 
                          daemon=True).start()
 
     def _thread_downloads(self, urls, qualidade, pasta, modo):
