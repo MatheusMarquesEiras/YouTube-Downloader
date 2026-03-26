@@ -4,13 +4,14 @@ Este é um projeto simples e eficiente desenvolvido em Python para baixar vídeo
 
 ## 🚀 Funcionalidades
 
-- **Três Modos de Download:**
-  - **Tudo (Vídeo + Áudio):** Baixa o vídeo completo em formato MP4.
-  - **Só Áudio (MP3):** Extrai apenas o áudio e converte para MP3 (128, 192 ou 320 kbps).
-  - **Vídeo sem Áudio:** Baixa apenas a trilha de vídeo em MP4.
+- **Múltiplos Modos de Download:**
+  - **Tudo (Vídeo + Áudio):** Baixa o vídeo completo, com opções em MP4 (padrão), WebM (Alta Qualidade) e MKV.
+  - **Só Áudio:** Extrai o áudio e converte para MP3 (128, 192 ou 320 kbps), WAV (Qualidade Lossless/Sem perdas) ou FLAC (Lossless comprimido).
+  - **Vídeo sem Áudio:** Baixa apenas a trilha de vídeo em MP4 (excelente para edições e b-rolls).
 - **Interface Gráfica Moderna:** Desenvolvida com Tkinter, oferecendo uma experiência visual limpa e intuitiva.
-- **Gerenciamento de Pasta:** Permite definir e abrir facilmente a pasta de destino dos arquivos.
-- **Processamento em Segundo Plano:** Os downloads não travam a interface, permitindo acompanhar o progresso em tempo real.
+- **Verificação de Sistema:** Checa automaticamente se o FFmpeg está instalado ao abrir o aplicativo, alertando o usuário para evitar erros de conversão.
+- **Gerenciamento de Pasta:** Permite definir e abrir facilmente a pasta de destino dos arquivos nativamente pelo sistema.
+- **Processamento em Segundo Plano:** Os downloads (usando threads) não travam a interface, permitindo acompanhar o progresso em tempo real e adicionar novas URLs.
 
 ## 🛠️ Requisitos
 
