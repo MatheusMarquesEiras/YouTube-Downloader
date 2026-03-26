@@ -22,9 +22,9 @@ Para rodar este projeto, você precisará de:
 3.  **FFmpeg:** Essencial para que o `yt-dlp` consiga converter áudios e unir trilhas de vídeo e áudio.
     - *No Windows:* Você pode baixar o binário em [ffmpeg.org](https://ffmpeg.org/download.html) ou via `choco install ffmpeg` / `scoop install ffmpeg`. Certifique-se de que ele esteja no seu `PATH`.
 
-## 📦 Como Usar com UV
+## 📦 Instalação e Execução (com UV)
 
-O `uv` facilita muito a execução do projeto sem que você precise se preocupar em criar ambientes virtuais manualmente.
+O `uv` facilita muito a execução e o build do projeto. Escolha o comando de acordo com o seu perfil:
 
 ### 1. Clonar o Repositório
 ```bash
@@ -32,15 +32,27 @@ git clone https://github.com/seu-usuario/downloader-audios-efects.git
 cd downloader-audios-efects
 ```
 
-### 2. Executar o Projeto
-Com o `uv` instalado, basta rodar o comando abaixo na raiz do projeto. O `uv` criará o ambiente virtual e instalará as dependências automaticamente na primeira execução:
+### 2. Escolha o seu Perfil
 
+#### 👤 Para Usuários (Apenas rodar o app)
+Para uma instalação limpa, contendo apenas o essencial para baixar os arquivos:
 ```bash
-uv run main.py
+uv sync --no-dev
+uv run poe start
+```
+
+#### 🛠️ Para Desenvolvedores (Build e Release)
+Se você deseja modificar o código ou gerar o executável (`.exe`) para Windows:
+```bash
+# Instala todas as dependências (App + Dev Tools)
+uv sync
+
+# Comando para gerar o executável em uma pasta /dist
+uv run poe build
 ```
 
 ### 3. Usando o Atalho (Windows)
-Se você estiver no Windows, pode simplesmente dar um clique duplo no arquivo `downloader.bat`. Ele executará o comando `uv run main.py` para você.
+Se você estiver no Windows, pode simplesmente dar um clique duplo no arquivo `downloader.bat`. Ele executará o comando `uv run poe start` para você.
 
 ## 📂 Estrutura do Projeto
 

@@ -5,6 +5,15 @@ build/
 dist/
 wheels/
 *.egg-info
+*.spec
+
+# PyInstaller
+*.exe
+*.log
 
 # Virtual environments
 .venv
+.python-version
+
+# uv
+uv.lock

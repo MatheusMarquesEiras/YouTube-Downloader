@@ -101,6 +101,16 @@ class BaixadorApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Baixador de Recursos")
+        
+        # Define o ícone da janela se o arquivo existir
+        icon_path = Path(__file__).parent / "imgs" / "icon-app.png"
+        if icon_path.exists():
+            try:
+                self.icon_img = tk.PhotoImage(file=str(icon_path))
+                self.root.iconphoto(True, self.icon_img)
+            except Exception as e:
+                print(f"Erro ao carregar ícone: {e}")
+
         self.root.geometry("920x680")
         self.root.minsize(860, 600)
 

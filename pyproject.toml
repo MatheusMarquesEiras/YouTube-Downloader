@@ -7,3 +7,17 @@ requires-python = ">=3.12"
 dependencies = [
     "yt-dlp>=2026.2.4",
 ]
+
+[dependency-groups]
+dev = [
+    "pillow>=12.1.1",
+    "poethepoet>=0.42.1",
+    "pyinstaller>=6.19.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.poe.tasks]
+start = "python main.py"
+build = "pyinstaller --noconsole --onefile --icon=\"imgs/icon-app.png\" main.py"
