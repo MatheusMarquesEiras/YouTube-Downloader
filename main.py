@@ -5,7 +5,18 @@ import threading
 import queue
 import yt_dlp
 import os
-import shutil  # Necessário para verificar o FFmpeg
+import shutil
+import sys
+import ctypes
+
+def get_resource_path(relative_path: str) -> Path:
+    """ Retorna o caminho absoluto do recurso, lidando com PyInstaller """
+    try:
+        # PyInstaller cria uma pasta temporária e armazena o caminho em _MEIPASS
+        base_path = Path(sys._MEIPASS)
+    except Exception:
+        base_path = Path(__file__).parent
+    return base_path / relative_path
 
 # -----------------------------
 # Download worker (thread)
@@ -103,7 +114,7 @@ class BaixadorApp:
         self.root.title("Baixador de Recursos")
         
         # Define o ícone da janela se o arquivo existir
-        icon_path = Path(__file__).parent / "imgs" / "icon-app.png"
+        icon_path = get_resource_path("imgs/icon-app.png")
         if icon_path.exists():
             try:
                 self.icon_img = tk.PhotoImage(file=str(icon_path))
@@ -323,6 +334,11 @@ class BaixadorApp:
         self.root.after(150, self._verificar_fila)
 
 if __name__ == "__main__":
+    # Fix para o ícone na barra de tarefas do Windows
+    if sys.platform == "win32":
+        myappid = 'mathe.youtube.downloader.v1'  # ID arbitrário para o Windows agrupar o ícone
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
     root = tk.Tk()
     app = BaixadorApp(root)
     root.mainloop()

@@ -20,4 +20,4 @@ package = false
 
 [tool.poe.tasks]
 start = "python main.py"
-build = "pyinstaller --noconsole --onefile --icon=\"imgs/icon-app.png\" main.py"
+build = "pyinstaller --noconsole --onefile --name=\"YouTubeDownloader\" --icon=\"imgs/icon-app.ico\" --add-data \"imgs;imgs\" main.py"
