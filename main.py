@@ -35,12 +35,34 @@ def get_config_path() -> Path:
 # -----------------------------
 # Download worker (thread)
 # -----------------------------
+class YDLStatusLogger:
+    """ Logger personalizado para redirecionar mensagens do yt-dlp para a UI """
+    def __init__(self, status_queue, idx):
+        self.status_queue = status_queue
+        self.idx = idx
+
+    def debug(self, msg):
+        # Ignorar mensagens de debug puras, mas manter informações úteis
+        if msg.startswith('[debug] '):
+            pass
+        else:
+            self.info(msg)
+
+    def info(self, msg):
+        self.status_queue.put(("status", self.idx, "andamento", msg))
+
+    def warning(self, msg):
+        self.status_queue.put(("status", self.idx, "andamento", f"Aviso: {msg}"))
+
+    def error(self, msg):
+        self.status_queue.put(("status", self.idx, "erro", f"Erro: {msg}"))
+
 def baixar_recurso(url, qualidade, pasta_destino: Path, status_queue: queue.Queue, idx: int, modo: str):
     """
     Realiza o download com base no modo selecionado usando yt-dlp.
     """
     try:
-        status_queue.put(("status", idx, "andamento", f"Baixando ({modo}): {url}"))
+        status_queue.put(("status", idx, "andamento", f"Iniciando download ({modo}): {url}"))
 
         # Configuração base
         ydl_opts = {
@@ -48,6 +70,7 @@ def baixar_recurso(url, qualidade, pasta_destino: Path, status_queue: queue.Queu
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            "logger": YDLStatusLogger(status_queue, idx),
         }
 
         if modo == "Só Áudio (MP3)":
@@ -79,18 +102,15 @@ def baixar_recurso(url, qualidade, pasta_destino: Path, status_queue: queue.Queu
             })
 
         elif modo == "Vídeo sem Áudio":
-            # Baixa apenas o melhor vídeo disponível (sem áudio) e força MP4
+            # Baixa apenas o melhor vídeo disponível (sem áudio) e tenta MP4
             ydl_opts.update({
                 "format": "bestvideo[ext=mp4]/bestvideo",
-                "postprocessors": [{
-                    "key": "FFmpegVideoConvertor",
-                    "preferedformat": "mp4",
-                }],
+                "merge_output_format": "mp4",
             })
             
         elif modo == "Vídeo (WebM - Alta Qualidade)":
             ydl_opts.update({
-                "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]",
+                "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best",
                 "merge_output_format": "webm",
             })
             
@@ -102,21 +122,17 @@ def baixar_recurso(url, qualidade, pasta_destino: Path, status_queue: queue.Queu
 
         else:  # Padrão: "Tudo (Vídeo + Áudio MP4)"
             ydl_opts.update({
-                # Tenta baixar mp4 nativo, senão baixa o melhor e converte
-                "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
-                "merge_output_format": "mp4",  # Força a união em MP4
-                "postprocessors": [{
-                    "key": "FFmpegVideoConvertor",
-                    "preferedformat": "mp4",
-                }],
+                # Prioriza MP4, mas aceita outros se necessário e converte
+                "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best",
+                "merge_output_format": "mp4",
             })
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        status_queue.put(("status", idx, "ok", f"Concluído: {url}"))
+        status_queue.put(("status", idx, "ok", f"Concluído com sucesso: {url}"))
     except Exception as e:
-        status_queue.put(("status", idx, "erro", f"Erro: {url} ({e})"))
+        status_queue.put(("status", idx, "erro", f"Falha no download: {url} ({e})"))
 
 
 # -----------------------------
