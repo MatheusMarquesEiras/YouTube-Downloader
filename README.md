@@ -1,5 +1,9 @@
 # Baixador de Recursos (Audio & Video)
 
+<p align="center">
+  <img src="imgs/YouTuberDownloader.jpg" alt="YouTuber Downloader" width="600">
+</p>
+
 Este é um projeto simples e eficiente desenvolvido em Python para baixar vídeos e áudios de diversas plataformas da web (como YouTube e outras suportadas pelo `yt-dlp`). Ele oferece uma interface gráfica (GUI) amigável para facilitar o processo, permitindo escolher entre diferentes formatos e qualidades.
 
 ## 🚀 Funcionalidades
